@@ -4,12 +4,12 @@ import ohnosequences.statika._, bundles._, instructions._
 import java.io.File
 
 
-abstract class Cufflinks(val version: String) extends Bundle() {
+abstract class Cufflinks(val version: String) extends Bundle() { cufflinks =>
 
-  val usrbin = "/usr/bin/"
-  val cufflinksDistribution = s"cufflinks-${version}.Linux_x86_64"
+  val name = s"cufflinks-${version}.Linux_x86_64"
+  val tarGz = name + ".tar.gz"
 
-  val commands: Set[String] = Set(
+  val binaries: Set[String] = Set(
     "cuffcompare",
     "cuffdiff",
     "cufflinks",
@@ -20,16 +20,20 @@ abstract class Cufflinks(val version: String) extends Bundle() {
     "gtf_to_sam"
   )
 
-  def linkCommand (cmd: String) : Results = Seq("ln", "-s", new File(s"${cufflinksDistribution}/${cmd}").getAbsolutePath,  s"/usr/bin/${cmd}")
+  lazy val download: CmdInstructions = cmd("wget")(
+    s"http://s3-eu-west-1.amazonaws.com/resources.ohnosequences.com/cufflinks/${version}/${cufflinks.tarGz}"
+  )
 
+  lazy val untar: CmdInstructions = cmd("tar")("-xvzf", cufflinks.tarGz)
 
-  def install: Results = {
-    Seq("wget", s"http://s3-eu-west-1.amazonaws.com/resources.ohnosequences.com/cufflinks/${version}/${cufflinksDistribution}.tar.gz", "-O", s"${cufflinksDistribution}.tar.gz") ->-
-    Seq("tar", "-xvf", s"${cufflinksDistribution}.tar.gz") ->-
-    commands.foldLeft[Results](
-      Seq("echo", "linking cufflinks binaries")
-    ){(acc, cmd) => acc ->- linkCommand(cmd)} ->-
-    success(s"${bundleName} is installed")
-  }
+  def linkCommand(binary: String): CmdInstructions = cmd("ln")("-s",
+    new File(name, binary).getCanonicalPath,
+    s"/usr/bin/${binary}"
+  )
+
+  def instructions: AnyInstructions =
+    download -&-
+    untar -&-
+    binaries.foldLeft[AnyInstructions]( Seq("echo", "linking binaries") ){ _ -&- linkCommand(_) }
 
 }
