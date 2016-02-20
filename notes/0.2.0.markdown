@@ -1,0 +1,4 @@
+
+- update build plugin to 0.7.0
+- update deps to statika 2.0.0-M5
+- remove unneeded imports
